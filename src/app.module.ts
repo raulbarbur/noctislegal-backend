@@ -1,12 +1,11 @@
 import { Module } from '@nestjs/common';
 import { PrismaModule } from './modules/prisma/prisma.module.js';
-// Aquí iremos importando los módulos a medida que los creemos:
-// import { ClientsModule } from './modules/clients/clients.module.js';
+import { ClientsModule } from './modules/clients/clients.module.js';
 
 @Module({
   imports: [
     PrismaModule,
-    // ClientsModule,
+    ClientsModule,
   ],
   controllers: [],
   providers: [],

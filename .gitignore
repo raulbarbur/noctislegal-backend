@@ -1,5 +1,16 @@
-node_modules
-# Keep environment variables out of version control
-.env
+# Logs
+logs
+*.log
 
-/generated
+# Dependency directories
+node_modules/
+dist/
+generated/
+
+# Environment files
+.env
+.env.test
+
+# OS files
+.DS_Store
+Thumbs.db
