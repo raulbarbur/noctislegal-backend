@@ -1,14 +1,270 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
-// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
-
 generator client {
-  provider = "prisma-client"
-  output   = "../generated/prisma"
+  provider = "prisma-client-js"
+  output   = "../generated/client"
 }
 
 datasource db {
   provider = "postgresql"
 }
+
+// --- ENUMS ---
+enum Priority {
+  low
+  medium
+  high
+  critical
+}
+
+enum FileStatus {
+  active
+  closed
+  archived
+}
+
+enum TaskType {
+  legal_deadline
+  hearing
+  task
+  reminder
+}
+
+enum TaskStatus {
+  pending
+  completed
+  cancelled
+  archived
+}
+
+enum PaymentStatus {
+  pending
+  completed
+}
+
+enum BackupStatus {
+  ok
+  failed
+  restoring
+}
+
+// --- SEGURIDAD, USUARIOS Y LOGS ---
+model User {
+  id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  username     String   @unique
+  passwordHash String   @map("password_hash")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @default(now()) @updatedAt @map("updated_at")
+
+  logs         Log[]
+  @@map("users")
+}
+
+model Log {
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId     String?  @map("user_id") @db.Uuid
+  action     String
+  module     String?
+  entityType String?  @map("entity_type")
+  entityId   String?  @map("entity_id") @db.Uuid
+  details    Json?
+  ipAddress  String?  @map("ip_address")
+  userAgent  String?  @map("user_agent")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  user       User?    @relation(fields:[userId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@index([module])
+  @@index([createdAt])
+  @@map("logs")
+}
+
+model Backup {
+  id             String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  backupType     String       @map("backup_type") 
+  filePath       String       @map("file_path")
+  fileSize       BigInt?      @map("file_size")
+  checksumSha256 String?      @map("checksum_sha256")
+  status         BackupStatus @default(ok)
+  description    String?
+  createdAt      DateTime     @default(now()) @map("created_at")
+
+  @@index([backupType])
+  @@index([createdAt])
+  @@map("backups")
+}
+
+// --- MÓDULO 1: CLIENTES ---
+model Client {
+  id         String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name       String
+  contact    String?
+  whatsapp   String?
+  tags       String[]
+  notes      String?
+  archived   Boolean   @default(false)
+  archivedAt DateTime? @map("archived_at")
+  createdAt  DateTime  @default(now()) @map("created_at")
+  updatedAt  DateTime  @default(now()) @updatedAt @map("updated_at")
+
+  files      File[]
+  payments   Payment[]
+  history    ClientHistory[]
+
+  @@index([archivedAt])
+  @@index([archived])
+  @@index([name])
+  @@map("clients")
+}
+
+model ClientHistory {
+  id            String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  clientId      String   @map("client_id") @db.Uuid
+  action        String
+  previousValue Json?    @map("previous_value")
+  newValue      Json?    @map("new_value")
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  client        Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  @@map("client_history")
+}
+
+// --- MÓDULO 2 Y 3: FILES Y DOCUMENTS ---
+model File {
+  id          String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  clientId    String     @map("client_id") @db.Uuid
+  title       String     @db.VarChar(120)
+  description String?
+  priority    Priority   @default(medium)
+  status      FileStatus @default(active)
+  archivedAt  DateTime?  @map("archived_at")
+  createdAt   DateTime   @default(now()) @map("created_at")
+  updatedAt   DateTime   @default(now()) @updatedAt @map("updated_at")
+
+  client       Client             @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  documents    Document[]
+  tasks        Task[]
+  payments     Payment[]
+  activityLogs FileActivityLog[]
+
+  @@index([clientId])
+  @@index([status])
+  @@index([priority])
+  @@index([updatedAt(sort: Desc)])
+  @@index([archivedAt])
+  @@map("files")
+}
+
+model FileActivityLog {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  fileId    String   @map("file_id") @db.Uuid
+  action    String   @db.VarChar(50)
+  userId    String?  @map("user_id") @db.Uuid
+  metadata  Json?
+  createdAt DateTime @default(now()) @map("created_at")
+
+  file      File     @relation(fields: [fileId], references: [id], onDelete: Cascade)
+  @@map("file_activity_log")
+}
+
+model Document {
+  id             String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  fileId         String    @map("file_id") @db.Uuid
+  name           String
+  docType        String    @map("doc_type")
+  link           String
+  description    String?
+  author         String?
+  classification String?
+  previewPng     String?   @map("preview_png")
+  archivedAt     DateTime? @map("archived_at")
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @default(now()) @updatedAt @map("updated_at")
+
+  file           File              @relation(fields: [fileId], references: [id], onDelete: Cascade)
+  history        DocumentHistory[]
+
+  @@index([fileId])
+  @@index([docType])
+  @@index([classification])
+  @@index([archivedAt])
+  @@map("documents")
+}
+
+model DocumentHistory {
+  id            String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  documentId    String   @map("document_id") @db.Uuid
+  action        String
+  changedBy     String?  @map("changed_by")
+  changedAt     DateTime @default(now()) @map("changed_at")
+  previousValue Json?    @map("previous_value")
+  newValue      Json?    @map("new_value")
+
+  document      Document @relation(fields:[documentId], references: [id], onDelete: Cascade)
+  @@index([documentId])
+  @@map("document_history")
+}
+
+// --- MÓDULO 4: AGENDA / TASKS ---
+model Task {
+  id                 String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  fileId             String     @map("file_id") @db.Uuid
+  title              String
+  description        String?
+  type               TaskType
+  status             TaskStatus @default(pending)
+  priority           Priority   @default(medium)
+  dueDate            DateTime   @map("due_date")
+  reminderDaysBefore Int?       @default(3) @map("reminder_days_before")
+  completedAt        DateTime?  @map("completed_at")
+  archivedAt         DateTime?  @map("archived_at")
+  createdAt          DateTime   @default(now()) @map("created_at")
+  updatedAt          DateTime   @default(now()) @updatedAt @map("updated_at")
+
+  file               File       @relation(fields: [fileId], references: [id], onDelete: Cascade)
+
+  @@index([fileId])
+  @@index([dueDate])
+  @@index([status])
+  @@index([type])
+  @@map("tasks")
+}
+
+// --- MÓDULO 5: HONORARIOS Y PAGOS ---
+model Payment {
+  id          String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  fileId      String        @map("file_id") @db.Uuid
+  clientId    String        @map("client_id") @db.Uuid
+  amount      Decimal       @db.Decimal(12, 2)
+  paymentDate DateTime      @default(now()) @map("payment_date")
+  status      PaymentStatus @default(pending)
+  receiptLink String?       @map("receipt_link")
+  archivedAt  DateTime?     @map("archived_at")
+  createdAt   DateTime      @default(now()) @map("created_at")
+  updatedAt   DateTime      @default(now()) @updatedAt @map("updated_at")
+
+  file        File             @relation(fields: [fileId], references: [id], onDelete: Cascade)
+  client      Client           @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  history     PaymentHistory[]
+
+  @@index([fileId])
+  @@index([clientId])
+  @@index([status])
+  @@index([paymentDate])
+  @@index([archivedAt])
+  @@map("payments")
+}
+
+model PaymentHistory {
+  id            String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  paymentId     String   @map("payment_id") @db.Uuid
+  action        String
+  changedBy     String?  @map("changed_by")
+  previousValue Json?    @map("previous_value")
+  newValue      Json?    @map("new_value")
+  changedAt     DateTime @default(now()) @map("changed_at")
+
+  payment       Payment  @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+  @@index([paymentId])
+  @@map("payment_history")
+}
+
