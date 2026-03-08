@@ -1,4 +1,7 @@
-import 'dotenv/config';
+import 'reflect-metadata';
+import * as dotenv from 'dotenv';
+dotenv.config();
+
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module.js';
 import { ValidationPipe } from '@nestjs/common';
@@ -6,16 +9,19 @@ import { ValidationPipe } from '@nestjs/common';
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
-  // Prefijo global para todas las rutas
   app.setGlobalPrefix('api');
 
-  // Habilitar validación global (necesario para los DTOs)
   app.useGlobalPipes(new ValidationPipe({
-    whitelist: true,
+    whitelist: true, 
     forbidNonWhitelisted: true,
     transform: true,
+    transformOptions: { enableImplicitConversion: true }, 
   }));
 
-  await app.listen(process.env.PORT ?? 3000);
+  app.enableCors();
+
+  const port = process.env.PORT || 3000;
+  await app.listen(port);
+  console.log(`ERP Backend operativo en: http://localhost:${port}/api`);
 }
 bootstrap();

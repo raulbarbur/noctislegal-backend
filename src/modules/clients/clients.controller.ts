@@ -6,7 +6,8 @@ import {
   Patch, 
   Param, 
   Query, 
-  ParseUUIDPipe 
+  ParseUUIDPipe,
+  Inject // Añadido Inject
 } from '@nestjs/common';
 import { ClientsService } from './clients.service.js';
 import { CreateClientDto, UpdateClientDto } from './dto/clients.dto.js';
@@ -14,7 +15,11 @@ import { ApiResponse } from '../../common/interfaces/api-response.interface.js';
 
 @Controller('clients')
 export class ClientsController {
-  constructor(private readonly clientsService: ClientsService) {}
+  // Usamos @Inject(ClientsService) para forzar la inyección manual
+  constructor(
+    @Inject(ClientsService)
+    private readonly clientsService: ClientsService
+  ) {}
 
   @Post()
   async create(@Body() createClientDto: CreateClientDto): Promise<ApiResponse> {

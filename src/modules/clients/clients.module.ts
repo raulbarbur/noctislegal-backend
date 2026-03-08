@@ -6,7 +6,7 @@ import { PrismaModule } from '../prisma/prisma.module.js';
 @Module({
   imports: [PrismaModule],
   controllers: [ClientsController],
-  providers: [ClientsService],
+  providers: [ClientsService], // <-- INDISPENSABLE
   exports: [ClientsService],
 })
 export class ClientsModule {}
