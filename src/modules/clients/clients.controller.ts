@@ -7,7 +7,9 @@ import {
   Param, 
   Query, 
   ParseUUIDPipe,
-  Inject // Añadido Inject
+  Inject,
+  ValidationPipe,
+  UsePipes
 } from '@nestjs/common';
 import { ClientsService } from './clients.service.js';
 import { CreateClientDto, UpdateClientDto } from './dto/clients.dto.js';
@@ -15,14 +17,21 @@ import { ApiResponse } from '../../common/interfaces/api-response.interface.js';
 
 @Controller('clients')
 export class ClientsController {
-  // Usamos @Inject(ClientsService) para forzar la inyección manual
   constructor(
     @Inject(ClientsService)
     private readonly clientsService: ClientsService
   ) {}
 
   @Post()
-  async create(@Body() createClientDto: CreateClientDto): Promise<ApiResponse> {
+  async create(
+    @Body(new ValidationPipe({ 
+      transform: true, 
+      whitelist: true, 
+      forbidNonWhitelisted: true,
+      expectedType: CreateClientDto // CLAVE: Fuerza la validación de esta clase específica
+    })) 
+    createClientDto: CreateClientDto
+  ): Promise<ApiResponse> {
     const data = await this.clientsService.create(createClientDto);
     return {
       success: true,
@@ -66,7 +75,13 @@ export class ClientsController {
   @Patch(':id')
   async update(
     @Param('id', ParseUUIDPipe) id: string,
-    @Body() updateClientDto: UpdateClientDto,
+    @Body(new ValidationPipe({ 
+      transform: true, 
+      whitelist: true, 
+      forbidNonWhitelisted: true,
+      expectedType: UpdateClientDto // CLAVE: Fuerza la validación de esta clase específica
+    })) 
+    updateClientDto: UpdateClientDto,
   ): Promise<ApiResponse> {
     const data = await this.clientsService.update(id, updateClientDto);
     return {
